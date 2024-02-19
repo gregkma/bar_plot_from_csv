@@ -1,0 +1,98 @@
+#!/bin/bash
+
+# Fonction pour traiter les fichiers CSV avec Python
+traiter_csv_avec_python() {
+    # Utilisation d'un bloc <<EOF pour écrire un script Python à l'intérieur du script Bash
+    python3 <<EOF
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Chemin vers le fichier CSV
+chemin_fichier = "$1"
+
+# Charger les données depuis le fichier CSV
+data = np.genfromtxt(chemin_fichier, delimiter=" ")
+
+# Fonction pour calculer le barplot
+def calculate_barplot(data):
+    max_len_sqrt = int(np.sqrt(len(data)))
+    bins = np.linspace(min(data[:, 1]), max(data[:, 1]), max_len_sqrt+1)
+    barplot_cate = np.zeros((max_len_sqrt,))
+    for i in range(len(data)):
+        for j in range(len(bins) - 1):
+            if j < len(bins) - 1:
+                if bins[j] <= data[i, 1] < bins[j + 1]:
+                    barplot_cate[j] += 1
+            else:
+                barplot_cate[j] += 1
+    return bins, barplot_cate
+
+# Fonction pour lisser les données
+def smooth_data(data, window_size):
+    return np.convolve(data, np.ones(window_size)/window_size, mode='valid')
+
+# Calcul du barplot
+bins, barplot = calculate_barplot(data)
+
+# Plot bar plot
+plt.figure(figsize=(12, 8))
+plt.bar(bins[:-1], barplot, width=np.diff(bins)[0], align='edge')
+
+# Titre et étiquettes des axes
+plt.title("$2")
+plt.xlabel("$3")
+plt.ylabel("$4")
+
+# Sauvegarde du graphique
+plt.savefig("$5")
+
+# Lissage des données et tracé des courbes lissées
+smoothed_data = smooth_data(barplot, 5)  # Lissage avec une fenêtre moyenne mobile de taille 5
+plt.plot(bins[:-5], smoothed_data, linewidth=2, label='Courbe lissée')
+plt.legend()
+plt.tight_layout()
+
+# Demander le chemin et le nom du fichier pour enregistrer le graphique lissé
+plt.savefig("$6")
+
+plt.show()
+EOF
+}
+
+# Rentrer le dossier de travail
+read -p "Rentrer le dossier de travail : " dossier
+
+# Vérifier si le dossier existe
+if [ ! -d "$dossier" ]; then
+    echo "Ce n'est pas un dossier valide."
+    exit 1
+fi
+
+cd "$dossier" || exit 1 
+
+# Rentrer le nombre de fichiers à traiter
+read -p "Nombre de fichiers à traiter : " nb_files
+
+# Message utilisation des données
+
+echo "script ne fonctionnant que si l'indice des x est 0 et des y 1."
+
+# Renommer les fichiers
+for ((i = 1; i <= nb_files; i++)); do
+    
+    echo "convertir le fichier en csv"
+    read -p "Rentrer le nom du fichier $i et son extension : " file
+    read -p "Rentrer le nom du fichier converti : " file2
+    mv "$file" "$file2.csv"
+    chemin_fichier="$file2.csv"
+
+    echo "tracer le graphique"
+    read -p "Titre du graphique : " titre
+    read -p "Nom de l'axe X : " xlabel
+    read -p "Nom de l'axe Y : " ylabel
+    read -p "Chemin de sortie et nom du fichier pour le graphique en bar  (terminer par .png) : " chemin_sortie_bar
+    read -p "Chemin de sortie et nom du fichier pour le graphique lissé (terminer par .png) : " chemin_sortie_smoothed
+    traiter_csv_avec_python "$chemin_fichier" "$titre" "$xlabel" "$ylabel" "$chemin_sortie_bar" "$chemin_sortie_smoothed"
+    rm "$i.csv"
+done
+
